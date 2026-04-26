@@ -1,0 +1,6 @@
+[package]
+name = "taskify_web"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

@@ -1,0 +1,1 @@
+// file is empty, we do not need a service worker.

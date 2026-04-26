@@ -1,0 +1,6 @@
+[package]
+name = "taskify_core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

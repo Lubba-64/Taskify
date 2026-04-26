@@ -1,5 +1,11 @@
 [workspace]
-members = ["taskify_extension", "taskify_app", "taskify_database"]
+members = [
+    "taskify_extension",
+    "taskify_core",
+    "taskify_web",
+    "taskify_android",
+    "taskify_desktop",
+]
 resolver = "2"
 
 [workspace.package]

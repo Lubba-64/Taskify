@@ -1,0 +1,39 @@
+{
+    "manifest_version": 3,
+    "name": "Taskify",
+    "short_name": "Taskify",
+    "description": "Create tasks with one click and manage them.",
+    "version": "0.0.0",
+    "author": "Lubba64@gmail.com",
+    "minimum_chrome_version": "110",
+    "offline_enabled": false,
+    "action": {
+        "default_title": "Creates tasks in a variety of ways. Manage tasks in a variety of ways.",
+        "default_icon": {
+            "16": "assets/toolbar_icon_16.png"
+        },
+        "default_popup": "js/popup.html"
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+    },
+    "background": {
+        "type": "module",
+        "service_worker": "js/background.js"
+    },
+    "permissions": [
+        "webRequest"
+    ],
+    "host_permissions": [],
+    "web_accessible_resources": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "resources": [
+                "js/wasm/taskify_extension.js",
+                "js/wasm/taskify_extension.wasm"
+            ]
+        }
+    ]
+}
