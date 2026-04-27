@@ -5,3 +5,4 @@ target
 **/mutants.out*/
 chrome.zip
 firefox.zip
+**/wasm/
