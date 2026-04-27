@@ -2,9 +2,7 @@ pub struct TaskifyApp;
 
 impl TaskifyApp {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        #[allow(clippy::allow_attributes, unused_mut)]
-        let mut slf = Self {};
-        slf
+        Self {}
     }
 }
 
