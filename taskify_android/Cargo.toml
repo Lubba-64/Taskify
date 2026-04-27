@@ -4,3 +4,23 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+eframe = { version = "0.34.1", default-features = false, features = [
+    "default_fonts",
+    "glow",
+    "android-native-activity",
+] }
+egui = { version = "0.34.1", features = ["default"] }
+winit = "0.30"
+android_logger = "0.15"
+log = "0.4"
+taskify_core = { version = "*", path = "../taskify_core", default-features = false }
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[package.metadata.android]
+build_targets = ["armv7-linux-androideabi", "aarch64-linux-android"]
+
+[package.metadata.android.sdk]
+min_sdk_version = 23
+target_sdk_version = 35
