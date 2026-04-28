@@ -6,3 +6,4 @@ target
 chrome.zip
 firefox.zip
 **/wasm/
+.env

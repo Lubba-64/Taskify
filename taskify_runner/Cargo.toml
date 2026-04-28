@@ -4,4 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-diesel = { version = "2.2.0", features = ["postgres"] }
+axum = "0.8.9"
+diesel = { version = "2.3.8", features = ["postgres"] }
+dotenv = "0.15.0"
