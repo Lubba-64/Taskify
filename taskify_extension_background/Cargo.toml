@@ -1,5 +1,5 @@
 [package]
-name = "taskify_extension"
+name = "taskify_extension_background"
 version.workspace = true
 edition.workspace = true
 
@@ -27,7 +27,8 @@ eframe = { version = "0.34.1", default-features = false, features = [
 ] }
 egui = { version = "0.34.1", features = ["default"] }
 log = { version = "0.4.28", features = ["std"] }
-
+console_log = "1.0"
+taskify_core = { version = "*", path = "../taskify_core", default-features = false }
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -4,8 +4,9 @@
 ## --out-name - force output file names
 ## --target - always use "web"!
 ## See https://rustwasm.github.io/wasm-pack/book/commands/build.html
-echo Building wasm module...
+echo Building wasm modules...
 wasm-pack build taskify_extension --dev --no-typescript --out-dir "../extension/js/wasm" --out-name "taskify_extension" --target web
+wasm-pack build taskify_extension_background --dev --no-typescript --out-dir "../extension/js/wasm" --out-name "taskify_extension_background" --target web
 
 ## wasm-pack creates bunch of useless files:
 echo Removing trash files...

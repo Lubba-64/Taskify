@@ -55,8 +55,8 @@ function startPanicPolling(handle) {
 async function bootstrap() {
     console.debug("Loading wasm...");
 
-    const wasmBytes = await fetch("./wasm/taskify_extension_bg.wasm").then(r => r.arrayBuffer());
-    await init(wasmBytes);
+    const wasmUrl = new URL("./wasm/taskify_extension_bg.wasm", import.meta.url);
+    await init({ module_or_path: wasmUrl });
     console.debug("Wasm loaded. Starting app...");
 
     const handle = new WebHandle();

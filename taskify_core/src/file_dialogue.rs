@@ -29,6 +29,8 @@ pub struct GenericFileDialogue<T: 'static> {
     wasm_task: FileDialogueWasmTask<T>,
 }
 
+unsafe impl<T> std::marker::Sync for GenericFileDialogue<T> {}
+
 impl<T: 'static> GenericFileDialogue<T> {
     #[cfg(not(target_arch = "wasm32"))]
     fn new(obj: T) -> GenericFileDialogue<T> {
@@ -142,7 +144,6 @@ macro_rules! make_generic_dialogue {
             let file = match get_bytes(file_handle).await {
                 Ok(file) => file,
                 Err(err) => {
-                    error!("file dialogue get_bytes failed: {err}");
                     return Err(err);
                 }
             };

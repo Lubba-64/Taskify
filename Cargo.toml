@@ -6,6 +6,7 @@ members = [
     "taskify_android",
     "taskify_desktop",
     "taskify_runner",
+    "taskify_extension_background",
 ]
 resolver = "2"
 
