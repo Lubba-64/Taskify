@@ -30,6 +30,25 @@ impl std::fmt::Display for RunnerError {
 
 impl std::error::Error for RunnerError {}
 
+#[derive(Debug)]
+struct TaskParseError {
+    message: String,
+}
+
+impl TaskParseError {
+    fn new(message: String) -> Self {
+        Self { message }
+    }
+}
+
+impl std::fmt::Display for TaskParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for TaskParseError {}
+
 #[derive(serde::Serialize, HasQuery)]
 struct Task {
     task_id: i32,
@@ -57,6 +76,56 @@ where
 {
     tracing::error!(error = %err, "internal error");
     (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+}
+
+fn build_task_prompt(text: String) -> String {
+    return format!(
+        "here is some text, do your best and fill out the json with the provided info
+    {{
+    task_start_date: time,
+    task_end_date: time,
+    task_description: string,
+    task_title: string,
+    task_priority: string,
+    }}
+    {}",
+        text
+    );
+}
+
+fn parse_new_task_from_model_response(raw: &str) -> Result<NewTask, TaskParseError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err(TaskParseError::new(
+            "model returned empty response".to_string(),
+        ));
+    }
+
+    if trimmed.eq_ignore_ascii_case("null") {
+        return Err(TaskParseError::new(
+            "model returned null due to low confidence".to_string(),
+        ));
+    }
+
+    if let Ok(task) = serde_json::from_str::<NewTask>(trimmed) {
+        return Ok(task);
+    }
+
+    let start = trimmed.find('{');
+    let end = trimmed.rfind('}');
+    if let (Some(start), Some(end)) = (start, end) {
+        if start < end {
+            let candidate = &trimmed[start..=end];
+            if let Ok(task) = serde_json::from_str::<NewTask>(candidate) {
+                return Ok(task);
+            }
+        }
+    }
+
+    Err(TaskParseError::new(format!(
+        "could not parse task JSON from model response: {}",
+        raw
+    )))
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
@@ -123,25 +192,13 @@ async fn new_task_image(
     }
     let text = text.expect("impossible to throw");
 
-    let res = match call_deepseek(&format!(
-    "here is some text captured from OCR, your job is to return a compatible json with the fields:
-    {{
-    task_start_date: time,
-    task_end_date: time,
-    task_description: string,
-    task_title: string,
-    task_priority: string,
-    }}
-    if confidence is low, return null
-    {}",
-        text
-    ))
-    .await
-    {
+    let res = match call_deepseek(&build_task_prompt(text)).await {
         Ok(ok) => Ok(ok),
         Err(_err) => Err(internal_error(RunnerError::default())),
     }?;
-    let res = serde_json::de::from_str::<NewTask>(&res).map_err(internal_error)?;
+    let preview: String = res.chars().take(160).collect();
+    tracing::debug!(preview = %preview, "raw model response preview");
+    let res = parse_new_task_from_model_response(&res).map_err(internal_error)?;
     tracing::debug!("deepseek response parsed into NewTask");
 
     let conn = pool.get().await.map_err(internal_error)?;
@@ -175,25 +232,13 @@ async fn new_task_text(
     }
     let text = new_task.data.expect("impossible to throw");
     tracing::debug!(chars = text.len(), "received raw text payload");
-    let res = match call_deepseek(&format!(
-    "here is some text captured from OCR, your job is to return a compatible json with the fields:
-    {{
-    task_start_date: time,
-    task_end_date: time,
-    task_description: string,
-    task_title: string,
-    task_priority: string,
-    }}
-    if confidence is low, return null
-    {}",
-        text
-    ))
-    .await
-    {
+    let res = match call_deepseek(&build_task_prompt(text)).await {
         Ok(ok) => Ok(ok),
         Err(_err) => Err(internal_error(RunnerError::default())),
     }?;
-    let res = serde_json::de::from_str::<NewTask>(&res).map_err(internal_error)?;
+    let preview: String = res.chars().take(160).collect();
+    tracing::debug!(preview = %preview, "raw model response preview");
+    let res = parse_new_task_from_model_response(&res).map_err(internal_error)?;
     tracing::debug!("deepseek response parsed into NewTask");
 
     let conn = pool.get().await.map_err(internal_error)?;

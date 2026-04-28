@@ -4,31 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-wasm-bindgen = "0.2"
-js-sys = "0.3"
-wasm-bindgen-futures = "0.4"
-serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde-wasm-bindgen = "0.6"
-urlencoding = "2.1"
-console_error_panic_hook = { version = "0.1.7", optional = true }
-web-sys = { version = "0.3", features = [
-    'Headers',
-    'Request',
-    'RequestInit',
-    'RequestMode',
-    'Response',
-    'Window',
-] }
-eframe = { version = "0.34.1", default-features = false, features = [
-    "default_fonts",
-    "wgpu",
-    "glow",
-] }
-egui = { version = "0.34.1", features = ["default"] }
-log = { version = "0.4.28", features = ["std"] }
-console_log = "1.0"
-taskify_core = { version = "*", path = "../taskify_core", default-features = false }
+
 
 [lib]
 crate-type = ["cdylib", "rlib"]

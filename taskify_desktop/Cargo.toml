@@ -9,3 +9,4 @@ eframe = { version = "0.34.1", default-features = false, features = [
 ] }
 egui = { version = "0.34.1", features = ["default"] }
 taskify_core = { version = "*", path = "../taskify_core", default-features = false }
+dotenv = "0.15.0"
