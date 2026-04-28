@@ -4765,6 +4765,7 @@ dependencies = [
  "futures",
  "getrandom",
  "image",
+ "log",
  "pdf-extract",
  "rfd",
  "wasm-bindgen-futures",

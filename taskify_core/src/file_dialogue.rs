@@ -46,7 +46,9 @@ impl<T: 'static> GenericFileDialogue<T> {
     pub fn poll(&mut self) -> &Option<T> {
         #[cfg(target_arch = "wasm32")]
         {
-            self.obj = self.wasm_task.take_output().map(|x| x.unwrap());
+            if let Some(output) = self.wasm_task.take_output() {
+                self.obj = Some(output.expect("file dialog async task panicked"));
+            }
             &self.obj
         }
         #[cfg(not(target_arch = "wasm32"))]
@@ -95,7 +97,9 @@ impl std::error::Error for FileDialogueError {}
 #[cfg(target_arch = "wasm32")]
 async fn get_bytes(file_handle: Option<FileHandle>) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let fh = match file_handle {
-        None => return Err(Box::new(FileDialogueError::default())),
+        None => {
+            return Err(Box::new(FileDialogueError::default()));
+        }
         Some(x) => x,
     };
     Ok(fh.read().await)
@@ -130,14 +134,18 @@ macro_rules! make_generic_dialogue {
         }
         #[cfg(target_arch = "wasm32")]
         async fn $async_name() -> Result<$ret, Box<dyn std::error::Error>> {
-            let file = get_bytes(
-                AsyncFileDialog::new()
-                    .add_filter("text", $extensions)
-                    .set_directory("./")
-                    .pick_file()
-                    .await,
-            )
-            .await?;
+            let file_handle = AsyncFileDialog::new()
+                .add_filter("text", $extensions)
+                .set_directory("./")
+                .pick_file()
+                .await;
+            let file = match get_bytes(file_handle).await {
+                Ok(file) => file,
+                Err(err) => {
+                    error!("file dialogue get_bytes failed: {err}");
+                    return Err(err);
+                }
+            };
             Ok($convert(file)?)
         }
         pub fn $generic_name() -> GenericFileDialogue<Result<$ret, Box<dyn std::error::Error>>> {

@@ -101,10 +101,6 @@ async fn new_task_image(
     State(pool): State<deadpool_diesel::postgres::Pool>,
     Json(new_task): Json<NewTaskImage>,
 ) -> Result<Json<Task>, (StatusCode, String)> {
-    tracing::info!(
-        has_image = new_task.data.is_some(),
-        "new_task_image request received"
-    );
     let mut text = None::<String>;
     if let Some(image) = new_task.data.map(|x| x.as_bytes().to_vec()) {
         tracing::debug!(bytes = image.len(), "writing OCR input image");
@@ -160,7 +156,6 @@ async fn new_task_image(
         .await
         .map_err(internal_error)?
         .map_err(internal_error)?;
-    tracing::info!(task_id = res.task_id, "task created from image");
     Ok(Json(res))
 }
 
@@ -174,10 +169,6 @@ async fn new_task_text(
     State(pool): State<deadpool_diesel::postgres::Pool>,
     Json(new_task): Json<NewTaskText>,
 ) -> Result<Json<Task>, (StatusCode, String)> {
-    tracing::info!(
-        has_text = new_task.data.is_some(),
-        "new_task_text request received"
-    );
     if new_task.data.is_none() {
         tracing::warn!("new_task_text request had empty payload");
         return Err(internal_error(RunnerError::default()));
@@ -217,7 +208,6 @@ async fn new_task_text(
         .await
         .map_err(internal_error)?
         .map_err(internal_error)?;
-    tracing::info!(task_id = res.task_id, "task created from text");
     Ok(Json(res))
 }
 
@@ -225,7 +215,6 @@ async fn new_task(
     State(pool): State<deadpool_diesel::postgres::Pool>,
     Json(new_task): Json<NewTask>,
 ) -> Result<Json<Task>, (StatusCode, String)> {
-    tracing::info!("new_task request received");
     let conn = pool.get().await.map_err(internal_error)?;
     tracing::debug!("database connection acquired for new_task");
     let res = conn
@@ -238,14 +227,12 @@ async fn new_task(
         .await
         .map_err(internal_error)?
         .map_err(internal_error)?;
-    tracing::info!(task_id = res.task_id, "task created from direct payload");
     Ok(Json(res))
 }
 
 async fn get_all_tasks(
     State(pool): State<deadpool_diesel::postgres::Pool>,
 ) -> Result<Json<Vec<Task>>, (StatusCode, String)> {
-    tracing::info!("get_all_tasks request received");
     let conn = pool.get().await.map_err(internal_error)?;
     tracing::debug!("database connection acquired for get_all_tasks");
     let res = conn
@@ -253,6 +240,5 @@ async fn get_all_tasks(
         .await
         .map_err(internal_error)?
         .map_err(internal_error)?;
-    tracing::info!(count = res.len(), "tasks loaded");
     Ok(Json(res))
 }

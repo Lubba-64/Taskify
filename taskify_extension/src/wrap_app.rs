@@ -1,3 +1,4 @@
+use log::{debug, error, info};
 use taskify_core::file_dialogue::{
     open_image_file, open_pdf_file, open_text_file, GenericFileDialogue,
 };
@@ -21,29 +22,44 @@ impl TaskifyExtensionApp {
 
 fn spawn_async_http_post_for_task_creation_text(data: String) {
     wasm_bindgen_futures::spawn_local(async move {
+        debug!("building POST request payload, bytes={}", data.len());
         let opts = RequestInit::new();
         opts.set_method("POST");
         opts.set_body(&wasm_bindgen::JsValue::from_str(&data));
 
-        let request = Request::new_with_str_and_init(
-            &format!(
-                "{}/task/new_text",
-                std::env::var("RUNNER_URL").expect("RUNNER_URL not set")
-            ),
-            &opts,
-        );
-        let request = match request {
-            Err(_err) => {
+        let runner_url = match std::env::var("RUNNER_URL") {
+            Ok(url) => url,
+            Err(err) => {
+                error!("RUNNER_URL missing: {err}");
                 return;
             }
-            Ok(ok) => ok,
+        };
+
+        let request =
+            Request::new_with_str_and_init(&format!("{}/task/new_text", runner_url), &opts);
+        let request = match request {
+            Err(err) => {
+                error!("failed to create request: {:?}", err);
+                return;
+            }
+            Ok(ok) => {
+                debug!("request created");
+                ok
+            }
         };
         let _ = request.headers().set("Content-Type", "application/json");
-        let window = web_sys::window().unwrap();
+        let window = match web_sys::window() {
+            Some(window) => window,
+            None => {
+                error!("window is unavailable");
+                return;
+            }
+        };
         let resp_value =
             wasm_bindgen_futures::JsFuture::from(window.fetch_with_request(&request)).await;
         let _resp_value = match resp_value {
-            Err(_err) => {
+            Err(err) => {
+                error!("fetch failed: {:?}", err);
                 return;
             }
             Ok(ok) => ok,
@@ -67,8 +83,8 @@ impl eframe::App for TaskifyExtensionApp {
             if let Some(ref mut future) = &mut self.input_image_dialogue {
                 match future.poll() {
                     Some(result) => match result {
-                        Err(_err) => {}
-                        Ok(_ok) => {}
+                        Err(err) => error!("image dialogue error: {err}"),
+                        Ok(ok) => debug!("image dialogue completed, bytes={}", ok.len()),
                     },
                     None => {}
                 }
@@ -79,8 +95,11 @@ impl eframe::App for TaskifyExtensionApp {
             if let Some(ref mut future) = &mut self.input_text_dialogue {
                 match future.poll() {
                     Some(result) => match result {
-                        Err(_err) => {}
-                        Ok(ok) => spawn_async_http_post_for_task_creation_text(ok.clone()),
+                        Err(err) => error!("text dialogue error: {err}"),
+                        Ok(ok) => {
+                            debug!("text dialogue completed, chars={}", ok.len());
+                            spawn_async_http_post_for_task_creation_text(ok.clone())
+                        }
                     },
                     None => {}
                 }
@@ -91,8 +110,11 @@ impl eframe::App for TaskifyExtensionApp {
             if let Some(ref mut future) = &mut self.input_pdf_dialogue {
                 match future.poll() {
                     Some(result) => match result {
-                        Err(_err) => {}
-                        Ok(ok) => spawn_async_http_post_for_task_creation_text(ok.clone()),
+                        Err(err) => error!("pdf dialogue error: {err}"),
+                        Ok(ok) => {
+                            debug!("pdf dialogue completed, chars={}", ok.len());
+                            spawn_async_http_post_for_task_creation_text(ok.clone())
+                        }
                     },
                     None => {}
                 }

@@ -16,6 +16,7 @@ image = "0.25.10"
 pdf-extract = "0.10.0"
 rfd = "0.17.2"
 wasm-bindgen-futures = "0.4.68"
+log = { version = "0.4.28", features = ["std"] }
 
 [lib]
 crate-type = ["cdylib", "rlib"]
