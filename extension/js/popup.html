@@ -2,11 +2,28 @@
 <html>
 
 <head>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'wasm-unsafe-eval';">
     <meta charset="UTF-8" />
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 400px;
+            height: 600px;
+            overflow: hidden;
+        }
+
+        #the_canvas_id {
+            width: 400px;
+            height: 600px;
+            display: block;
+        }
+    </style>
 </head>
 
 <body>
-    <canvas id="the_canvas_id"></canvas>
+    <canvas id="the_canvas_id" width="400" height="600"></canvas>
     <div class="centered" id="center_text">
         <p style="font-size:16px">
             Loading…

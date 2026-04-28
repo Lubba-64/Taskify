@@ -55,13 +55,26 @@ function startPanicPolling(handle) {
 async function bootstrap() {
     console.debug("Loading wasm...");
 
-    await init("./wasm/taskify_extension_bg.wasm");
+    const wasmBytes = await fetch("./wasm/taskify_extension_bg.wasm").then(r => r.arrayBuffer());
+    await init(wasmBytes);
     console.debug("Wasm loaded. Starting app...");
 
     const handle = new WebHandle();
     startPanicPolling(handle);
 
     const canvas = document.getElementById("the_canvas_id");
+
+    canvas.addEventListener("webglcontextlost", (e) => {
+        e.preventDefault();
+        console.warn("WebGL context lost, destroying handle...");
+        handle.destroy();
+    }, false);
+
+    canvas.addEventListener("webglcontextrestored", () => {
+        console.warn("WebGL context restored, restarting...");
+        bootstrap().catch(showError);
+    }, false);
+
     await handle.start(canvas);
     onAppStarted();
 }

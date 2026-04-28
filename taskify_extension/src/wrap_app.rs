@@ -24,55 +24,55 @@ impl eframe::App for TaskifyExtensionApp {
                 ui.separator();
             }
             ui.label("outside of wasm text");
-        });
 
-        if ui.button("Scan Image For Task").clicked() {
-            self.input_image_dialogue = Some(open_image_file());
-        }
-        if let Some(ref mut future) = &mut self.input_image_dialogue {
-            match future.poll() {
-                Some(result) => match result {
-                    Err(err) => {
-                        // TODO: ADD ERROR UI
-                    }
-                    Ok(ok) => {
-                        // TODO: send to runner/database
-                    }
-                },
-                None => {}
+            if ui.button("Scan Image For Task").clicked() {
+                self.input_image_dialogue = Some(open_image_file());
             }
-        }
-        if ui.button("Scan Text For Task").clicked() {
-            self.input_text_dialogue = Some(open_image_file());
-        }
-        if let Some(ref mut future) = &mut self.input_text_dialogue {
-            match future.poll() {
-                Some(result) => match result {
-                    Err(err) => {
-                        // TODO: ADD ERROR UI
-                    }
-                    Ok(ok) => {
-                        // TODO: send to runner/database
-                    }
-                },
-                None => {}
+            if let Some(ref mut future) = &mut self.input_image_dialogue {
+                match future.poll() {
+                    Some(result) => match result {
+                        Err(err) => {
+                            // TODO: ADD ERROR UI
+                        }
+                        Ok(ok) => {
+                            // TODO: send to runner/database
+                        }
+                    },
+                    None => {}
+                }
             }
-        }
-        if ui.button("Scan PDF For Task").clicked() {
-            self.input_pdf_dialogue = Some(open_image_file());
-        }
-        if let Some(ref mut future) = &mut self.input_pdf_dialogue {
-            match future.poll() {
-                Some(result) => match result {
-                    Err(err) => {
-                        // TODO: ADD ERROR UI
-                    }
-                    Ok(ok) => {
-                        // TODO: send to runner/database
-                    }
-                },
-                None => {}
+            if ui.button("Scan Text For Task").clicked() {
+                self.input_text_dialogue = Some(open_image_file());
             }
-        }
+            if let Some(ref mut future) = &mut self.input_text_dialogue {
+                match future.poll() {
+                    Some(result) => match result {
+                        Err(err) => {
+                            // TODO: ADD ERROR UI
+                        }
+                        Ok(ok) => {
+                            // TODO: send to runner/database
+                        }
+                    },
+                    None => {}
+                }
+            }
+            if ui.button("Scan PDF For Task").clicked() {
+                self.input_pdf_dialogue = Some(open_image_file());
+            }
+            if let Some(ref mut future) = &mut self.input_pdf_dialogue {
+                match future.poll() {
+                    Some(result) => match result {
+                        Err(err) => {
+                            // TODO: ADD ERROR UI
+                        }
+                        Ok(ok) => {
+                            // TODO: send to runner/database
+                        }
+                    },
+                    None => {}
+                }
+            }
+        });
     }
 }
