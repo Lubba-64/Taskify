@@ -8,6 +8,12 @@ eframe = { version = "0.34.1", default-features = false, features = [
     "default_fonts",
 ] }
 egui = { version = "0.34.1", features = ["default"] }
+futures = "0.3.32"
+getrandom = { version = "0.3.4", features = ["wasm_js"] }
+image = "0.25.10"
+pdf-extract = "0.10.0"
+rfd = "0.17.2"
+wasm-bindgen-futures = "0.4.68"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

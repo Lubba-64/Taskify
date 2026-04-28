@@ -1,3 +1,5 @@
+pub mod file_dialogue;
+
 pub struct TaskifyApp;
 
 impl TaskifyApp {
