@@ -1,4 +1,4 @@
-use log::{debug, error};
+use log::debug;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

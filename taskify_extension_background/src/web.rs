@@ -54,7 +54,6 @@ fn spawn_async_http_post_for_task_creation_text(data: String) {
 
 #[wasm_bindgen]
 pub struct WebHandle {
-    input_image_dialogue: Option<GenericFileDialogue<Result<Vec<u8>, Box<dyn std::error::Error>>>>,
     input_text_dialogue: Option<GenericFileDialogue<Result<String, Box<dyn std::error::Error>>>>,
     input_pdf_dialogue: Option<GenericFileDialogue<Result<String, Box<dyn std::error::Error>>>>,
 }
@@ -73,30 +72,10 @@ impl WebHandle {
         console_log::init_with_level(log_level).ok();
 
         Self {
-            input_image_dialogue: None,
             input_text_dialogue: None,
             input_pdf_dialogue: None,
         }
     }
-
-    /*
-        #[wasm_bindgen]
-        pub fn scan_image(&mut self) {
-            self.input_image_dialogue = Some(open_image_file());
-            if let Some(ref mut future) = &mut self.input_image_dialogue {
-                match future.poll() {
-                    Some(result) => match result {
-                        Err(err) => error!("text dialogue error: {err}"),
-                        Ok(ok) => {
-                            debug!("text dialogue completed, chars={}", ok.len());
-                            spawn_async_http_post_for_task_creation_text(ok.clone())
-                        }
-                    },
-                    None => {}
-                }
-            }
-        }
-    */
 
     #[wasm_bindgen]
     pub fn scan_text(&mut self) {
@@ -139,5 +118,10 @@ impl WebHandle {
                 self.input_pdf_dialogue = Some(future);
             }
         }
+    }
+
+    #[wasm_bindgen]
+    pub fn scan_image(&mut self) {
+        debug!("scan_image is not implemented yet");
     }
 }

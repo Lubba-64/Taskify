@@ -4,16 +4,32 @@ await init({ module_or_path: wasmUrl });
 const handle = new WebHandle();
 console.debug("background initialized");
 setInterval(() => handle.tick(), 100);
+
+ browser.windows.create( {
+      type: 'popup',
+      width: 640,
+      height: 480,
+      url: 'popup.htm'
+    } );
+
 browser.runtime.onMessage.addListener(data => {
     const messageType = data?.type ?? data?.data;
     if (messageType == 'scan_text'){
         console.log("textscan");
-        handle.scan_text();
+        try {
+            handle.scan_text();
+        } catch (err) {
+            console.error("scan_text threw", err);
+        }
     }
     if (messageType == 'scan_pdf'){
-        handle.scan_pdf();
+        try {
+            handle.scan_pdf();
+        } catch (err) {
+            console.error("scan_pdf threw", err);
+        }
     }
     if (messageType == 'scan_image'){
-        // TODO: IMPL image
+        handle.scan_image();
     }
-})
+});

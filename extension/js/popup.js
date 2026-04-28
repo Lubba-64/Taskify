@@ -1,5 +1,10 @@
 import init, { WebHandle } from "./wasm/taskify_extension.js";
 
+window.addEventListener('blur', (e) => {
+  // Try to keep focus
+  window.focus();
+});
+
 function showCrash(handle) {
     document.getElementById("the_canvas_id")?.remove();
     document.getElementById("center_text").innerHTML = `

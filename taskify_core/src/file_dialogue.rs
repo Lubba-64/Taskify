@@ -138,7 +138,6 @@ macro_rules! make_generic_dialogue {
         async fn $async_name() -> Result<$ret, Box<dyn std::error::Error>> {
             let file_handle = AsyncFileDialog::new()
                 .add_filter("text", $extensions)
-                .set_directory("./")
                 .pick_file()
                 .await;
             let file = match get_bytes(file_handle).await {
