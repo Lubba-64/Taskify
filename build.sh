@@ -7,11 +7,11 @@
 echo Building wasm modules...
 wasm-pack build taskify_extension --dev --no-typescript --out-dir "../extension/js/wasm" --out-name "taskify_extension" --target web
 wasm-pack build taskify_extension_background --dev --no-typescript --out-dir "../extension/js/wasm" --out-name "taskify_extension_background" --target web
-wasm-pack build taskify_core --dev --no-typescript --out-dir "../taskify_web_wasm" --out-name "taskify_core" --target web
+wasm-pack build taskify_core --dev --no-typescript --out-dir "../taskify_web/taskify_web_wasm" --out-name "taskify_core" --target web
 rm -f extension/js/wasm/.gitignore
 rm -f extension/js/wasm/package.json
-rm -f taskify_web/wasm/.gitignore
-rm -f taskify_web/wasm/package.json
+rm -f taskify_web/taskify_web_wasm/.gitignore
+rm -f taskify_web/taskify_web_wasm/package.json
 rm -f chrome.zip && \
 (cd extension && zip -rq ../chrome.zip . -x manifest_ff.json -x manifest.json) && \
 printf "@ manifest_cr.json\n@=manifest.json\n" | zipnote -w chrome.zip && \

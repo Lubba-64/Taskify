@@ -73,7 +73,7 @@ where
 }
 
 fn build_task_prompt(text: String) -> String {
-    return format!(
+    format!(
         "here is some text, do your best and fill out the json with the provided info
     {{
     task_start_date: time,
@@ -84,41 +84,30 @@ fn build_task_prompt(text: String) -> String {
     }}
     {}",
         text
-    );
+    )
 }
 
-fn parse_new_task_from_model_response(raw: &str) -> Result<NewTask, TaskParseError> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return Err(TaskParseError::new(
-            "model returned empty response".to_string(),
-        ));
+fn parse_new_task_from_model_response(mut string: &str) -> Result<NewTask, TaskParseError> {
+    string = string.trim();
+    if string.starts_with("```") {
+        string = string.strip_prefix("```").unwrap_or(string);
     }
-
-    if trimmed.eq_ignore_ascii_case("null") {
-        return Err(TaskParseError::new(
-            "model returned null due to low confidence".to_string(),
-        ));
+    string = string.trim();
+    if string.ends_with("```") {
+        string = string.strip_suffix("```").unwrap_or(string);
     }
-
-    if let Ok(task) = serde_json::from_str::<NewTask>(trimmed) {
+    string = string.trim();
+    if string.starts_with("json") {
+        string = string.strip_prefix("json").unwrap_or(string);
+    }
+    string = string.trim();
+    tracing::debug!("STRING:|{}|", string);
+    if let Ok(task) = serde_json::from_str::<NewTask>(string) {
         return Ok(task);
     }
-
-    let start = trimmed.find('{');
-    let end = trimmed.rfind('}');
-    if let (Some(start), Some(end)) = (start, end) {
-        if start < end {
-            let candidate = &trimmed[start..=end];
-            if let Ok(task) = serde_json::from_str::<NewTask>(candidate) {
-                return Ok(task);
-            }
-        }
-    }
-
     Err(TaskParseError::new(format!(
         "could not parse task JSON from model response: {}",
-        raw
+        string
     )))
 }
 
@@ -144,6 +133,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/task/new", post(new_task))
         .route("/task/new_image", post(new_task_image))
         .route("/task/new_text", post(new_task_text))
+        .route("/task/delete", post(delete_task))
         .route("/task/getall", get(get_all_tasks))
         .with_state(pool);
 
@@ -267,6 +257,27 @@ async fn new_task(
         .map_err(internal_error)?
         .map_err(internal_error)?;
     Ok(Json(res))
+}
+
+#[derive(serde::Deserialize)]
+struct DeleteTask {
+    id: i32,
+}
+
+async fn delete_task(
+    State(pool): State<deadpool_diesel::postgres::Pool>,
+    Json(delete_task): Json<DeleteTask>,
+) -> Result<(), (StatusCode, String)> {
+    let conn = pool.get().await.map_err(internal_error)?;
+    tracing::debug!("database connection acquired for new_task");
+    conn.interact(move |conn| {
+        diesel::delete(tasks::table.filter(tasks::task_id.eq(delete_task.id)))
+            .execute(conn)
+            .map_err(internal_error)
+    })
+    .await
+    .map_err(internal_error)??;
+    Ok(())
 }
 
 async fn get_all_tasks(

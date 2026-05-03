@@ -1,6 +1,9 @@
 use crate::{
     file_dialogue_component::{FileDialogError, FileDialoge},
+    get_tasks::{get_tasks, GetTasksError},
     post_file::{post_file, PostFileError},
+    task::Task,
+    wasm_task::TaskHandler,
 };
 use egui::containers::Frame;
 use image::ImageReader;
@@ -9,26 +12,17 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-type FilePromise = Arc<Mutex<Option<Result<(), Box<PostFileError>>>>>;
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct Task {
-    task_id: i32,
-    created_at: chrono::NaiveDateTime,
-    updated_at: chrono::NaiveDateTime,
-    task_start_date: chrono::NaiveDateTime,
-    task_end_date: chrono::NaiveDateTime,
-    task_description: String,
-    task_title: String,
-    task_priority: String,
-}
+type FilePromise = Arc<Mutex<Option<TaskHandler<Result<(), Box<PostFileError>>>>>>;
+type GetTasksPromise = Option<TaskHandler<Result<Vec<Task>, Box<GetTasksError>>>>;
 
 pub struct TaskifyApp {
     err_str: String,
     pdf_err: FilePromise,
     txt_err: FilePromise,
     img_err: FilePromise,
+    get_tasks: GetTasksPromise,
     tasks: Vec<Task>,
+    init: bool,
 }
 
 impl TaskifyApp {
@@ -38,7 +32,9 @@ impl TaskifyApp {
             pdf_err: Arc::new(Mutex::new(None)),
             txt_err: Arc::new(Mutex::new(None)),
             img_err: Arc::new(Mutex::new(None)),
-            tasks: get_tasks_temp_desktop().unwrap_or_default(),
+            get_tasks: None,
+            tasks: vec![],
+            init: false,
         }
     }
 }
@@ -61,22 +57,12 @@ fn extract_pdf_text(file: Vec<u8>) -> Result<String, Box<FileDialogError>> {
         .map_err(|e| FileDialogError::new(format!("{:#?}", e)))?)
 }
 
-fn get_tasks_temp_desktop() -> Result<Vec<Task>, Box<dyn std::error::Error>> {
-    let client = reqwest::blocking::Client::builder()
-        .build()
-        .map_err(|e| PostFileError::new(format!("{:#?}", e)))?;
-    let runner_url =
-        std::env::var("RUNNER_URL").map_err(|e| PostFileError::new(format!("{:#?}", e)))?;
-    let response = client
-        .get(format!("{}/{}", runner_url, "task/getall"))
-        .send()
-        .map_err(|e| PostFileError::new(format!("{:#?}", e)))?;
-    Ok(response.json::<Vec<Task>>()?)
-}
-
 impl eframe::App for TaskifyApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::Title("Taskify".to_string()));
+            ui.heading("Taskify");
             ui.label(&self.err_str);
             let pdf_promise_clone = self.pdf_err.clone();
             ui.add(&mut FileDialoge::new(
@@ -118,29 +104,42 @@ impl eframe::App for TaskifyApp {
                 })),
                 "Create Task From Image",
             ));
-            if let Some(result) = self.pdf_err.lock().expect("expect lock").take() {
-                match result {
-                    Ok(_) => {}
-                    Err(e) => self.err_str = format!("{:#?}", e),
+            if let Some(mut promise) = self.pdf_err.lock().expect("expect lock").take() {
+                if let Some(result) = promise.poll() {
+                    let _ = result.inspect_err(|e| {
+                        self.err_str = format!("{:#?}", e);
+                    });
                 }
             }
-            if let Some(result) = self.txt_err.lock().expect("expect lock").take() {
-                match result {
-                    Ok(_) => {}
-                    Err(e) => self.err_str = format!("{:#?}", e),
+            if let Some(mut promise) = self.txt_err.lock().expect("expect lock").take() {
+                if let Some(result) = promise.poll() {
+                    let _ = result.inspect_err(|e| {
+                        self.err_str = format!("{:#?}", e);
+                    });
                 }
             }
-            if let Some(result) = self.img_err.lock().expect("expect lock").take() {
-                match result {
-                    Ok(_) => {}
-                    Err(e) => self.err_str = format!("{:#?}", e),
+            if let Some(mut promise) = self.img_err.lock().expect("expect lock").take() {
+                if let Some(result) = promise.poll() {
+                    let _ = result.inspect_err(|e| {
+                        self.err_str = format!("{:#?}", e);
+                    });
                 }
             }
-
-            if ui.button("Refresh Tasks").clicked() {
-                self.tasks = get_tasks_temp_desktop().unwrap_or_default();
+            if ui.button("Refresh Tasks").clicked() || !self.init {
+                self.get_tasks = Some(get_tasks());
+                self.init = true;
             }
-
+            if let Some(mut promise) = self.get_tasks.take() {
+                if let Some(result) = promise.poll() {
+                    let _ = result
+                        .inspect_err(|e| {
+                            self.err_str = format!("{:#?}", e);
+                        })
+                        .inspect(|tasks| {
+                            self.tasks = tasks.clone();
+                        });
+                }
+            }
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for task in &self.tasks {
                     let frame = Frame::group(ui.style())

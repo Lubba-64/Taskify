@@ -2,9 +2,22 @@ use axum::response::Html;
 use axum::{routing::get, Router};
 use dotenv::dotenv;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use tower_http::services::ServeDir;
+use tower_http::trace::TraceLayer;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+
+#[derive(Debug)]
+struct RunnerError;
+
+impl std::fmt::Display for RunnerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("An error occured with the runner")
+    }
+}
+
+impl std::error::Error for RunnerError {}
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,9 +29,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
+    let wasm_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("taskify_web_wasm");
+    tracing::info!(
+        "wasm_dir:{}",
+        wasm_dir.to_str().ok_or(Box::new(RunnerError))?
+    );
     let app = Router::new()
         .route("/", get(index))
-        .nest_service("/taskify_web_wasm", ServeDir::new("./taskify_web_wasm"));
+        .nest_service("/taskify_web_wasm", ServeDir::new(wasm_dir))
+        .route(
+            "/debug",
+            get(|| async move {
+                let wasm_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("taskify_web_wasm");
+                let js_path = wasm_dir.join("taskify_core.js");
+                let wasm_path = wasm_dir.join("taskify_core_bg.wasm");
+
+                format!(
+                    "JS exists: {}<br>WASM exists: {}<br>Dir: {}",
+                    js_path.exists(),
+                    wasm_path.exists(),
+                    wasm_dir.display()
+                )
+            }),
+        )
+        .layer(TraceLayer::new_for_http());
     let addr = SocketAddr::from(([127, 0, 0, 1], 3001));
     tracing::info!(%addr, "taskify_web starting");
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
@@ -32,10 +66,31 @@ async fn index() -> Html<&'static str> {
             <!doctype html>
             <html>
                 <head>
+                <style>
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }
 
+                    body {
+                        margin: 0;
+                        padding: 0;
+                        overflow: hidden;
+                    }
+
+                    canvas {
+                        display: block;
+                        width: 100vw;
+                        height: 100vh;
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                    }
+                </style>
                 </head>
                 <body>
-                    <canvas id="the_canvas_id" width="400" height="600"></canvas>
+                    <canvas id="the_canvas_id"></canvas>
                     <div class="centered" id="center_text">
                         <p style="font-size:16px">
                             Loading…
@@ -43,7 +98,7 @@ async fn index() -> Html<&'static str> {
                         <div class="lds-dual-ring"></div>
                     </div>
                     <script type="module">
-                    import init, { WebHandle } from "./taskify_web_wasm/taskify_extension.js";
+                    import init, { WebHandle } from "./taskify_web_wasm/taskify_core.js";
 
                     window.addEventListener('blur', (e) => {
                       // Try to keep focus
@@ -105,7 +160,7 @@ async fn index() -> Html<&'static str> {
                     async function bootstrap() {
                         console.debug("Loading wasm...");
 
-                        const wasmUrl = new URL("./taskify_web_wasm/taskify_extension_bg.wasm", import.meta.url);
+                        const wasmUrl = new URL("./taskify_web_wasm/taskify_core_bg.wasm", import.meta.url);
                         await init({ module_or_path: wasmUrl });
                         console.debug("Wasm loaded. Starting app...");
 

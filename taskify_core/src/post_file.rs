@@ -1,3 +1,5 @@
+use crate::wasm_task::TaskHandler;
+
 #[derive(Debug, Clone)]
 pub struct PostFileError {
     message: String,
@@ -81,18 +83,13 @@ fn post_file_sync(data: String, route: String) -> Result<(), Box<PostFileError>>
     Ok(())
 }
 
-pub fn post_file(data: String, route: String) -> Result<(), Box<PostFileError>> {
+pub fn post_file(data: String, route: String) -> TaskHandler<Result<(), Box<PostFileError>>> {
     #[cfg(not(target_arch = "wasm32"))]
     {
-        post_file_sync(data, route)
+        TaskHandler::new(post_file_sync(data, route))
     }
     #[cfg(target_arch = "wasm32")]
     {
-        // no error handling because I cannot be bothered. sorry.
-        // you will know if it doesnt work but it will fail silently
-        wasm_bindgen_futures::spawn_local(async move {
-            let _ = post_file_async(data, route).await;
-        });
-        Ok(())
+        TaskHandler::new(post_file_async(data, route))
     }
 }
