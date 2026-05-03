@@ -2,6 +2,7 @@ use crate::{
     file_dialogue_component::{FileDialogError, FileDialoge},
     post_file::{post_file, PostFileError},
 };
+use egui::containers::Frame;
 use image::ImageReader;
 use std::{
     io::Cursor,
@@ -10,11 +11,24 @@ use std::{
 
 type FilePromise = Arc<Mutex<Option<Result<(), Box<PostFileError>>>>>;
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Task {
+    task_id: i32,
+    created_at: chrono::NaiveDateTime,
+    updated_at: chrono::NaiveDateTime,
+    task_start_date: chrono::NaiveDateTime,
+    task_end_date: chrono::NaiveDateTime,
+    task_description: String,
+    task_title: String,
+    task_priority: String,
+}
+
 pub struct TaskifyApp {
     err_str: String,
     pdf_err: FilePromise,
     txt_err: FilePromise,
     img_err: FilePromise,
+    tasks: Vec<Task>,
 }
 
 impl TaskifyApp {
@@ -24,6 +38,7 @@ impl TaskifyApp {
             pdf_err: Arc::new(Mutex::new(None)),
             txt_err: Arc::new(Mutex::new(None)),
             img_err: Arc::new(Mutex::new(None)),
+            tasks: get_tasks_temp_desktop().unwrap_or_default(),
         }
     }
 }
@@ -44,6 +59,19 @@ fn try_to_utf8(file: Vec<u8>) -> Result<String, Box<FileDialogError>> {
 fn extract_pdf_text(file: Vec<u8>) -> Result<String, Box<FileDialogError>> {
     Ok(pdf_extract::extract_text_from_mem(&file)
         .map_err(|e| FileDialogError::new(format!("{:#?}", e)))?)
+}
+
+fn get_tasks_temp_desktop() -> Result<Vec<Task>, Box<dyn std::error::Error>> {
+    let client = reqwest::blocking::Client::builder()
+        .build()
+        .map_err(|e| PostFileError::new(format!("{:#?}", e)))?;
+    let runner_url =
+        std::env::var("RUNNER_URL").map_err(|e| PostFileError::new(format!("{:#?}", e)))?;
+    let response = client
+        .get(format!("{}/{}", runner_url, "task/getall"))
+        .send()
+        .map_err(|e| PostFileError::new(format!("{:#?}", e)))?;
+    Ok(response.json::<Vec<Task>>()?)
 }
 
 impl eframe::App for TaskifyApp {
@@ -108,6 +136,25 @@ impl eframe::App for TaskifyApp {
                     Err(e) => self.err_str = format!("{:#?}", e),
                 }
             }
+
+            if ui.button("Refresh Tasks").clicked() {
+                self.tasks = get_tasks_temp_desktop().unwrap_or_default();
+            }
+
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for task in &self.tasks {
+                    let frame = Frame::group(ui.style())
+                        .fill(ui.visuals().panel_fill)
+                        .inner_margin(egui::Margin::same(10));
+                    frame.show(ui, |ui| {
+                        ui.label(&task.task_title);
+                        ui.label(&task.task_description);
+                        ui.label(&task.task_priority);
+                        ui.label(format!("start date: {:#?}", task.task_start_date));
+                        ui.label(format!("end date: {:#?}", task.task_end_date));
+                    });
+                }
+            });
         });
     }
 }

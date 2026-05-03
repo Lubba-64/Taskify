@@ -4756,6 +4756,7 @@ dependencies = [
 name = "taskify_core"
 version = "0.0.0"
 dependencies = [
+ "chrono",
  "eframe",
  "egui",
  "futures",
