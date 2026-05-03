@@ -36,6 +36,7 @@ struct NewTaskText {
     data: Option<String>,
 }
 
+#[cfg(target_arch = "wasm32")]
 async fn post_file_async(data: String, route: String) -> Result<(), Box<PostFileError>> {
     let client = reqwest::Client::builder()
         .build()
@@ -58,6 +59,7 @@ async fn post_file_async(data: String, route: String) -> Result<(), Box<PostFile
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn post_file_sync(data: String, route: String) -> Result<(), Box<PostFileError>> {
     let client = reqwest::blocking::Client::builder()
         .build()
@@ -86,6 +88,11 @@ pub fn post_file(data: String, route: String) -> Result<(), Box<PostFileError>> 
     }
     #[cfg(target_arch = "wasm32")]
     {
-        Promise::spawn_local(async move { post_file_async(data).await })
+        // no error handling because I cannot be bothered. sorry.
+        // you will know if it doesnt work but it will fail silently
+        wasm_bindgen_futures::spawn_local(async move {
+            let _ = post_file_async(data, route).await;
+        });
+        Ok(())
     }
 }

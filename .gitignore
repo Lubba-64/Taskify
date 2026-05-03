@@ -7,3 +7,4 @@ chrome.zip
 firefox.zip
 **/wasm/
 .env
+**/taskify_web_wasm/
