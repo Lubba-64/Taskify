@@ -1,11 +1,18 @@
 # Taskify
 Taskify is a FOSS product for tracking and creating tasks with a click of a button
 
+## Web App
+Supported platforms (not all have been tested):
+ - Firefox
+ - Chromium
+Run `build.sh` (Ubuntu only)
+Build command:
+`cargo run --release --bin taskify_web`
+
 ## Browser Extension
 Supported platforms (not all have been tested):
  - Firefox
  - Chromium
-
 Run `build.sh` (Ubuntu only)
 
 ## Desktop
@@ -16,7 +23,6 @@ Supported platforms (not all have been tested):
  - Windows arm64
  - Linux x86_64
  - Linux arm64
-
 Build command:
 `cargo run --release --bin taskify_desktop`
 
@@ -55,7 +61,6 @@ adb install -r target/debug/apk/taskify_android.apk
 # or run locally
 cargo apk run -p taskify_android --lib
 ```
-
 Enable USB debugging on phone
 ```
 Settings -> About phone -> tap Build number 7 times
