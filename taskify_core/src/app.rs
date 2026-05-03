@@ -1,112 +1,40 @@
-use std::io::Cursor;
-
+use crate::{
+    file_dialogue_component::{FileDialogError, FileDialoge},
+    post_file::{post_file, PostFileError},
+};
 use image::ImageReader;
-use log::{debug, error};
+use std::{
+    io::Cursor,
+    sync::{Arc, Mutex},
+};
 
-use crate::file_dialogue_component::{FileDialogError, FileDialoge};
-
-#[cfg(target_arch = "wasm32")]
-fn post_text_wasm(data: String) -> Result<(), Box<dyn std::error::Error>> {
-    wasm_bindgen_futures::spawn_local(async move {
-        debug!("building POST request payload, bytes={}", data.len());
-        let opts = RequestInit::new();
-        opts.set_method("POST");
-        opts.set_body(&wasm_bindgen::JsValue::from_str(&format!(
-            "{{data:{}}}",
-            &data
-        )));
-        let runner_url = match std::env::var("RUNNER_URL") {
-            Ok(url) => url,
-            Err(err) => {
-                error!("RUNNER_URL missing: {err}");
-                return;
-            }
-        };
-        let request =
-            Request::new_with_str_and_init(&format!("{}/task/new_text", runner_url), &opts);
-        let request = match request {
-            Err(err) => {
-                error!("failed to create request: {:?}", err);
-                return;
-            }
-            Ok(ok) => {
-                debug!("request created");
-                ok
-            }
-        };
-        let _ = request.headers().set("Content-Type", "application/json");
-        let window = match web_sys::window() {
-            Some(window) => window,
-            None => {
-                error!("window is unavailable");
-                return;
-            }
-        };
-        let resp_value =
-            wasm_bindgen_futures::JsFuture::from(window.fetch_with_request(&request)).await;
-        let _resp_value = match resp_value {
-            Err(err) => {
-                error!("fetch failed: {:?}", err);
-                return;
-            }
-            Ok(ok) => ok,
-        };
-    })
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-#[derive(serde::Serialize)]
-struct NewTaskText {
-    data: Option<String>,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn post_text_desktop(data: String) -> Result<(), Box<dyn std::error::Error>> {
-    let client = reqwest::blocking::Client::builder()
-        .build()
-        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
-    let runner_url = std::env::var("RUNNER_URL")?;
-    let _response = client
-        .post(format!("{}/task/new_text", runner_url))
-        .json(&NewTaskText {
-            data: Some(String::from_utf8(std::fs::read(data)?)?),
-        })
-        .send()
-        .map_err(|e| format!("Request failed: {}", e))?;
-    Ok(())
-}
-
-pub fn post_text(data: String) -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        post_text_desktop(data)?;
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        post_text_wasm(data);
-    }
-    Ok(())
-}
+type FilePromise = Arc<Mutex<Option<Result<(), Box<PostFileError>>>>>;
 
 pub struct TaskifyApp {
     err_str: String,
+    pdf_err: FilePromise,
+    txt_err: FilePromise,
+    img_err: FilePromise,
 }
 
 impl TaskifyApp {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         Self {
             err_str: "".to_string(),
+            pdf_err: Arc::new(Mutex::new(None)),
+            txt_err: Arc::new(Mutex::new(None)),
+            img_err: Arc::new(Mutex::new(None)),
         }
     }
 }
 
-fn check_file_is_image(file: Vec<u8>) -> Result<Vec<u8>, Box<FileDialogError>> {
+fn check_file_is_image(file: Vec<u8>) -> Result<String, Box<FileDialogError>> {
     let _ = ImageReader::new(Cursor::new(file.clone()))
         .with_guessed_format()
         .map_err(|e| FileDialogError::new(format!("{:#?}", e)))?
         .decode()
-        .map_err(|e| FileDialogError::new(format!("{:#?}", e)))?; //we do not need to use this value, we just need to confirm its an image so we can pass it along to the database.
-    Ok(file)
+        .map_err(|e| FileDialogError::new(format!("{:#?}", e)))?;
+    Ok(String::from_utf8(file).map_err(|e| FileDialogError::new(format!("{:#?}", e)))?)
 }
 
 fn try_to_utf8(file: Vec<u8>) -> Result<String, Box<FileDialogError>> {
@@ -118,32 +46,68 @@ fn extract_pdf_text(file: Vec<u8>) -> Result<String, Box<FileDialogError>> {
         .map_err(|e| FileDialogError::new(format!("{:#?}", e)))?)
 }
 
-// TODO: ADD ERROR UI
 impl eframe::App for TaskifyApp {
-    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
+            ui.label(&self.err_str);
+            let pdf_promise_clone = self.pdf_err.clone();
             ui.add(&mut FileDialoge::new(
                 &["pdf"],
                 Box::new(extract_pdf_text),
-                Some(Box::new(|_| {})),
-                "Scan Task From PDF",
-            ))
-        });
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+                Some(Box::new(move |data| {
+                    let _ = pdf_promise_clone
+                        .lock()
+                        .expect("expect lock")
+                        .insert(post_file(data, "task/new_text".to_string()));
+                    Ok(())
+                })),
+                "Create Task From PDF",
+            ));
+
+            let txt_promise_clone = self.txt_err.clone();
             ui.add(&mut FileDialoge::new(
                 &["txt", "md"],
-                Box::new(extract_pdf_text),
-                Some(Box::new(|_| {})),
-                "Scan Task From Text",
-            ))
-        });
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+                Box::new(try_to_utf8),
+                Some(Box::new(move |data| {
+                    let _ = txt_promise_clone
+                        .lock()
+                        .expect("expect lock")
+                        .insert(post_file(data, "task/new_text".to_string()));
+                    Ok(())
+                })),
+                "Create Task From Text",
+            ));
+            let img_promise_clone = self.img_err.clone();
             ui.add(&mut FileDialoge::new(
-                &["pdf"],
-                Box::new(extract_pdf_text),
-                Some(Box::new(|_| {})),
-                "Open File",
-            ))
+                &["png", "jpg", "jpeg"],
+                Box::new(check_file_is_image),
+                Some(Box::new(move |data| {
+                    let _ = img_promise_clone
+                        .lock()
+                        .expect("expect lock")
+                        .insert(post_file(data, "task/new_image".to_string()));
+                    Ok(())
+                })),
+                "Create Task From Image",
+            ));
+            if let Some(result) = self.pdf_err.lock().expect("expect lock").take() {
+                match result {
+                    Ok(_) => {}
+                    Err(e) => self.err_str = format!("{:#?}", e),
+                }
+            }
+            if let Some(result) = self.txt_err.lock().expect("expect lock").take() {
+                match result {
+                    Ok(_) => {}
+                    Err(e) => self.err_str = format!("{:#?}", e),
+                }
+            }
+            if let Some(result) = self.img_err.lock().expect("expect lock").take() {
+                match result {
+                    Ok(_) => {}
+                    Err(e) => self.err_str = format!("{:#?}", e),
+                }
+            }
         });
     }
 }

@@ -16,12 +16,6 @@ use tracing_subscriber::util::SubscriberInitExt;
 #[derive(Debug)]
 struct RunnerError;
 
-impl Default for RunnerError {
-    fn default() -> Self {
-        Self {}
-    }
-}
-
 impl std::fmt::Display for RunnerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("An error occured with the runner")
@@ -188,13 +182,13 @@ async fn new_task_image(
     }
     if text.is_none() {
         tracing::warn!("new_task_image request had no usable image content");
-        return Err(internal_error(RunnerError::default()));
+        return Err(internal_error(RunnerError));
     }
     let text = text.expect("impossible to throw");
 
     let res = match call_deepseek(&build_task_prompt(text)).await {
         Ok(ok) => Ok(ok),
-        Err(_err) => Err(internal_error(RunnerError::default())),
+        Err(_err) => Err(internal_error(RunnerError)),
     }?;
     let preview: String = res.chars().take(160).collect();
     tracing::debug!(preview = %preview, "raw model response preview");
@@ -228,13 +222,13 @@ async fn new_task_text(
 ) -> Result<Json<Task>, (StatusCode, String)> {
     if new_task.data.is_none() {
         tracing::warn!("new_task_text request had empty payload");
-        return Err(internal_error(RunnerError::default()));
+        return Err(internal_error(RunnerError));
     }
     let text = new_task.data.expect("impossible to throw");
     tracing::debug!(chars = text.len(), "received raw text payload");
     let res = match call_deepseek(&build_task_prompt(text)).await {
         Ok(ok) => Ok(ok),
-        Err(_err) => Err(internal_error(RunnerError::default())),
+        Err(_err) => Err(internal_error(RunnerError)),
     }?;
     let preview: String = res.chars().take(160).collect();
     tracing::debug!(preview = %preview, "raw model response preview");

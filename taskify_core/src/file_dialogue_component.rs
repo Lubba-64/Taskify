@@ -23,8 +23,6 @@ use std::rc::Rc;
 use std::thread;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures;
-#[cfg(target_arch = "wasm32")]
-use web_sys::{Request, RequestInit};
 
 pub struct GenericFileDialog<T: Clone + 'static> {
     obj: Option<T>,
@@ -54,7 +52,7 @@ impl<T: Clone + 'static> GenericFileDialog<T> {
             if let Some(output) = self.wasm_task.take_output() {
                 self.obj = Some(output.expect("file dialog async task panicked"));
             }
-            self.obj
+            self.obj.clone()
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -153,10 +151,10 @@ fn sync_file_dialogue<T>(
 #[cfg(target_arch = "wasm32")]
 async fn async_file_dialogue<T>(
     convert: impl FnOnce(Vec<u8>) -> Result<T, Box<FileDialogError>>,
-    extensions: &[impl ToString],
+    extensions: Vec<impl ToString>,
 ) -> Result<T, Box<FileDialogError>> {
     let file_handle = AsyncFileDialog::new()
-        .add_filter("text", extensions)
+        .add_filter("text", extensions.as_slice())
         .pick_file()
         .await;
     let file = match get_bytes(file_handle).await {
@@ -168,15 +166,17 @@ async fn async_file_dialogue<T>(
     Ok(convert(file)?)
 }
 
-fn file_dialogue<T: Clone + 'static, F: Fn(Vec<u8>) -> Result<T, Box<FileDialogError>> + Clone>(
+fn file_dialogue<
+    T: Clone + 'static,
+    F: Fn(Vec<u8>) -> Result<T, Box<FileDialogError>> + Clone + 'static,
+>(
     convert: Box<F>,
     extensions: Vec<String>,
 ) -> GenericFileDialog<Result<T, Box<FileDialogError>>> {
     #[cfg(target_arch = "wasm32")]
     {
         GenericFileDialog::new(FileDialogWasmTask::spawn(async_file_dialogue(
-            convert,
-            extensions.as_slice(),
+            convert, extensions,
         )))
     }
     #[cfg(not(target_arch = "wasm32"))]
@@ -188,6 +188,8 @@ fn file_dialogue<T: Clone + 'static, F: Fn(Vec<u8>) -> Result<T, Box<FileDialogE
     }
 }
 
+type Handler<T> = Option<Box<dyn Fn(T) -> Result<(), Box<FileDialogError>>>>;
+
 #[must_use = "You should put this widget in a ui with `ui.add(widget);`"]
 pub struct FileDialoge<
     T: Clone + 'static,
@@ -197,19 +199,14 @@ pub struct FileDialoge<
     err: Option<Box<dyn std::error::Error>>,
     extensions: Vec<String>,
     convert: Box<F>,
-    handler: Option<Box<dyn Fn(T)>>,
+    handler: Handler<T>,
     label: String,
 }
 
 impl<T: Clone + 'static, F: Fn(Vec<u8>) -> Result<T, Box<FileDialogError>> + Clone>
     FileDialoge<T, F>
 {
-    pub fn new(
-        extensions: &[&str],
-        convert: Box<F>,
-        handler: Option<Box<dyn Fn(T)>>,
-        labal: &str,
-    ) -> Self {
+    pub fn new(extensions: &[&str], convert: Box<F>, handler: Handler<T>, labal: &str) -> Self {
         Self {
             generic_file_dialogue: None,
             err: None,
@@ -221,7 +218,7 @@ impl<T: Clone + 'static, F: Fn(Vec<u8>) -> Result<T, Box<FileDialogError>> + Clo
     }
 }
 
-impl<T: Clone + 'static, F: Fn(Vec<u8>) -> Result<T, Box<FileDialogError>> + Clone> Widget
+impl<T: Clone + 'static, F: Fn(Vec<u8>) -> Result<T, Box<FileDialogError>> + Clone + 'static> Widget
     for &mut FileDialoge<T, F>
 {
     fn ui(self, ui: &mut Ui) -> Response {
@@ -229,7 +226,9 @@ impl<T: Clone + 'static, F: Fn(Vec<u8>) -> Result<T, Box<FileDialogError>> + Clo
             self.generic_file_dialogue =
                 Some(file_dialogue(self.convert.clone(), self.extensions.clone()));
         }
-        ui.colored_label(egui::Color32::RED, format!("{:#?}", self.err));
+        if self.err.is_some() {
+            ui.colored_label(egui::Color32::RED, format!("{:#?}", self.err));
+        }
         let mut clear = false;
         if let Some(ref mut future) = &mut self.generic_file_dialogue {
             if let Some(result) = future.poll() {
@@ -238,7 +237,10 @@ impl<T: Clone + 'static, F: Fn(Vec<u8>) -> Result<T, Box<FileDialogError>> + Clo
                     Err(err) => self.err = Some(err),
                     Ok(ok) => {
                         if let Some(handler) = &self.handler {
-                            handler(ok);
+                            match handler(ok) {
+                                Ok(_) => {}
+                                Err(err) => self.err = Some(err),
+                            }
                         }
                         clear = true;
                     }
