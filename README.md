@@ -5,6 +5,7 @@ Taskify is a FOSS product for tracking and creating tasks with a click of a butt
 Supported platforms (not all have been tested):
  - Firefox
  - Chromium
+
 Run `build.sh` (Ubuntu only)
 Build command:
 `cargo run --release --bin taskify_web`
