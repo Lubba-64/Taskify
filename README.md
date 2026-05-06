@@ -26,6 +26,7 @@ Supported platforms (not all have been tested):
  - Windows arm64
  - Linux x86_64
  - Linux arm64
+
 Build command:
 `cargo run --release --bin taskify_desktop`
 
