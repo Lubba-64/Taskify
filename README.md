@@ -7,6 +7,7 @@ Supported platforms (not all have been tested):
  - Chromium
 
 Run `build.sh` (Ubuntu only)
+
 Build command:
 `cargo run --release --bin taskify_web`
 
