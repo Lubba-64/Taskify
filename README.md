@@ -14,6 +14,7 @@ Build command:
 Supported platforms (not all have been tested):
  - Firefox
  - Chromium
+
 Run `build.sh` (Ubuntu only)
 
 ## Desktop
